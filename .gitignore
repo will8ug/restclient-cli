@@ -5,3 +5,14 @@ dist/
 .idea/
 
 .DS_Store
+
+# Go
+restclient-cli
+*.exe
+*.exe~
+*.dll
+*.so
+*.dylib
+*.test
+*.out
+vendor/
