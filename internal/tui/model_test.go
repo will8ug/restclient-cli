@@ -1,0 +1,238 @@
+package tui
+
+import (
+	"strings"
+	"testing"
+
+	"github.com/charmbracelet/bubbles/list"
+	tea "github.com/charmbracelet/bubbletea"
+	"github.com/will8ug/restclient-cli/internal/parser"
+)
+
+// setupModel creates a Model with 3 test requests and a WindowSizeMsg applied.
+func setupModel(t *testing.T) Model {
+	t.Helper()
+	requests := []parser.Request{
+		{Name: "Get users", Method: "GET", URL: "https://api.example.com/users"},
+		{Name: "Create user", Method: "POST", URL: "https://api.example.com/users"},
+		{Name: "Delete user", Method: "DELETE", URL: "https://api.example.com/users/1"},
+	}
+	m := NewModel(requests, "test.http")
+	newM, _ := m.Update(tea.WindowSizeMsg{Width: 100, Height: 30})
+	return newM.(Model)
+}
+
+func sendKey(t *testing.T, m Model, msg tea.KeyMsg) (Model, tea.Cmd) {
+	t.Helper()
+	newM, cmd := m.Update(msg)
+	m = newM.(Model)
+	m = routeCmd(t, m, cmd)
+	return m, cmd
+}
+
+func routeCmd(t *testing.T, m Model, cmd tea.Cmd) Model {
+	t.Helper()
+	if cmd == nil {
+		return m
+	}
+	return routeMsg(t, m, cmd())
+}
+
+func routeMsg(t *testing.T, m Model, msg tea.Msg) Model {
+	t.Helper()
+	switch msg := msg.(type) {
+	case nil:
+		return m
+	case list.FilterMatchesMsg:
+		newM, _ := m.Update(msg)
+		return newM.(Model)
+	case tea.BatchMsg:
+		for _, cmd := range msg {
+			m = routeCmd(t, m, cmd)
+		}
+		return m
+	default:
+		return m
+	}
+}
+
+func TestUpdateInitialState(t *testing.T) {
+	m := setupModel(t)
+
+	if !m.ready {
+		t.Fatal("expected model to be ready after window size update")
+	}
+	if m.activePanel != panelList {
+		t.Fatalf("expected activePanel=%v, got %v", panelList, m.activePanel)
+	}
+	if m.showHelp {
+		t.Fatal("expected help to be hidden")
+	}
+	if m.loading {
+		t.Fatal("expected loading to be false")
+	}
+}
+
+func TestUpdateWindowSizeMsg(t *testing.T) {
+	m := setupModel(t)
+
+	for i := 0; i < 2; i++ {
+		var cmd tea.Cmd
+		m, cmd = sendKey(t, m, tea.KeyMsg{Type: tea.KeyDown})
+		if cmd != nil {
+			t.Logf("down key returned cmd: %T", cmd)
+		}
+	}
+
+	if got := m.list.Index(); got != 2 {
+		t.Fatalf("expected selected index 2, got %d", got)
+	}
+
+	newM, _ := m.Update(tea.WindowSizeMsg{Width: 120, Height: 32})
+	m = newM.(Model)
+
+	if got := m.requests[m.list.Index()].Name; got != "Delete user" {
+		t.Fatalf("expected selected request name %q, got %q", "Delete user", got)
+	}
+	if got := m.detail.View(); !strings.Contains(got, "/users/1") {
+		t.Fatalf("expected detail view to contain selected request URL %q, got %q", "/users/1", got)
+	}
+}
+
+func TestUpdateTabSwitching(t *testing.T) {
+	m := setupModel(t)
+
+	if m.activePanel != panelList {
+		t.Fatalf("expected initial panelList, got %v", m.activePanel)
+	}
+
+	m, _ = sendKey(t, m, tea.KeyMsg{Type: tea.KeyTab})
+	if m.activePanel != panelDetail {
+		t.Fatalf("expected panelDetail after first tab, got %v", m.activePanel)
+	}
+
+	m, _ = sendKey(t, m, tea.KeyMsg{Type: tea.KeyTab})
+	if m.activePanel != panelResponse {
+		t.Fatalf("expected panelResponse after second tab, got %v", m.activePanel)
+	}
+
+	m, _ = sendKey(t, m, tea.KeyMsg{Type: tea.KeyTab})
+	if m.activePanel != panelList {
+		t.Fatalf("expected panelList after wrapping tab, got %v", m.activePanel)
+	}
+}
+
+func TestUpdateQuitInList(t *testing.T) {
+	m := setupModel(t)
+
+	_, cmd := sendKey(t, m, tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'q'}})
+	if cmd == nil {
+		t.Fatal("expected quit command from list panel")
+	}
+	if _, ok := cmd().(tea.QuitMsg); !ok {
+		t.Fatalf("expected tea.QuitMsg, got %T", cmd())
+	}
+
+	m, _ = sendKey(t, m, tea.KeyMsg{Type: tea.KeyTab})
+	_, cmd = sendKey(t, m, tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'q'}})
+	if cmd != nil {
+		t.Fatalf("expected no quit command from non-list panel, got %T", cmd)
+	}
+}
+
+func TestUpdateHelpToggle(t *testing.T) {
+	m := setupModel(t)
+
+	m, _ = sendKey(t, m, tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'?'}})
+	if !m.showHelp {
+		t.Fatal("expected help to be shown after first toggle")
+	}
+
+	m, _ = sendKey(t, m, tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'?'}})
+	if m.showHelp {
+		t.Fatal("expected help to be hidden after second toggle")
+	}
+}
+
+func TestUpdateFilterApplied(t *testing.T) {
+	m := setupModel(t)
+	total := len(m.list.VisibleItems())
+
+	if m.list.FilterState() == list.Filtering {
+		t.Fatal("expected filter to be inactive initially")
+	}
+
+	m, _ = sendKey(t, m, tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'/'}})
+	if m.list.FilterState() != list.Filtering {
+		t.Fatalf("expected filtering after '/', got %v", m.list.FilterState())
+	}
+
+	for _, r := range []rune{'G', 'E', 'T'} {
+		var cmd tea.Cmd
+		m, cmd = sendKey(t, m, tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{r}})
+		if cmd != nil {
+			t.Logf("filter key %q returned cmd: %T", r, cmd)
+		}
+	}
+
+	m, _ = sendKey(t, m, tea.KeyMsg{Type: tea.KeyEnter})
+
+	if state := m.list.FilterState(); state != list.FilterApplied && state != list.Filtering {
+		t.Fatalf("expected filter to be applied or still filtering, got %v", state)
+	}
+	if got := len(m.list.VisibleItems()); got >= total {
+		t.Fatalf("expected visible items to narrow after filtering, got %d of %d", got, total)
+	}
+}
+
+func TestUpdateFilterShortcut(t *testing.T) {
+	m := setupModel(t)
+	all := len(m.list.VisibleItems())
+
+	if m.list.FilterState() == list.Filtering {
+		t.Fatal("expected filter to be inactive initially")
+	}
+
+	m, _ = sendKey(t, m, tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'/'}})
+	if m.list.FilterState() != list.Filtering {
+		t.Fatalf("expected filtering after '/', got %v", m.list.FilterState())
+	}
+
+	m, _ = sendKey(t, m, tea.KeyMsg{Type: tea.KeyEnter})
+	if got := len(m.list.VisibleItems()); got != all {
+		t.Fatalf("expected all items visible after empty filter apply, got %d of %d", got, all)
+	}
+	if m.list.FilterState() == list.Filtering {
+		t.Fatal("expected filtering to stop after enter")
+	}
+}
+
+func TestUpdateDetailUpdatesOnSelection(t *testing.T) {
+	m := setupModel(t)
+
+	if got := m.requests[m.list.Index()].Name; got != "Get users" {
+		t.Fatalf("expected initial selected request %q, got %q", "Get users", got)
+	}
+	if got := m.detail.View(); !strings.Contains(got, "/users") {
+		t.Fatalf("expected initial detail to contain request URL %q, got %q", "/users", got)
+	}
+
+	m, _ = sendKey(t, m, tea.KeyMsg{Type: tea.KeyDown})
+	if got := m.list.Index(); got != 1 {
+		t.Fatalf("expected selected index 1, got %d", got)
+	}
+	if got := m.requests[m.list.Index()].Name; got != "Create user" {
+		t.Fatalf("expected selected request %q, got %q", "Create user", got)
+	}
+	if got := m.detail.View(); !strings.Contains(got, "/users") {
+		t.Fatalf("expected detail to contain request URL %q, got %q", "/users", got)
+	}
+
+	m, _ = sendKey(t, m, tea.KeyMsg{Type: tea.KeyDown})
+	if got := m.requests[m.list.Index()].Name; got != "Delete user" {
+		t.Fatalf("expected selected request %q, got %q", "Delete user", got)
+	}
+	if got := m.detail.View(); !strings.Contains(got, "/users/1") {
+		t.Fatalf("expected detail to contain request URL %q, got %q", "/users/1", got)
+	}
+}

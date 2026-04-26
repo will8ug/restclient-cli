@@ -14,6 +14,17 @@ import (
 	"github.com/will8ug/restclient-cli/internal/parser"
 )
 
+const (
+	listWidthPercent    = 30 // percentage of terminal width for request list
+	detailHeightPercent = 40 // percentage of available height for detail panel
+	statusBarHeight     = 3  // height reserved for bottom status bar (1 line + padding)
+	panelHorizInset     = 4  // left+right borders and spacing between panels
+	panelVertInset      = 4  // top+bottom borders and panel title overhead
+	numPanels           = 3  // total number of panels
+	panelContentXPad    = 2  // horizontal padding for views inside bordered panels
+	panelContentYPad    = 3  // vertical padding for views inside bordered panels (title + borders)
+)
+
 type panel int
 
 const (
@@ -85,8 +96,9 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		m = m.resizePanels()
 		m.ready = true
 
-		if len(m.requests) > 0 {
-			m.detail.SetContent(renderRequestDetail(m.requests[0]))
+		idx := m.list.Index()
+		if idx >= 0 && idx < len(m.requests) {
+			m.detail.SetContent(renderRequestDetail(m.requests[idx]))
 		}
 		return m, nil
 
@@ -94,6 +106,9 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		if m.list.FilterState() == list.Filtering {
 			var cmd tea.Cmd
 			m.list, cmd = m.list.Update(msg)
+			if msg.String() == "enter" && strings.TrimSpace(m.list.FilterInput.Value()) == "" {
+				m.list.ResetFilter()
+			}
 			return m, cmd
 		}
 
@@ -107,7 +122,7 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			}
 
 		case "tab":
-			m.activePanel = (m.activePanel + 1) % 3
+			m.activePanel = (m.activePanel + 1) % numPanels
 			return m, nil
 
 		case "?":
@@ -197,14 +212,14 @@ func (m Model) View() string {
 		return lipgloss.Place(m.width, m.height, lipgloss.Center, lipgloss.Center, renderHelp())
 	}
 
-	listWidth := m.width * 30 / 100
-	rightWidth := m.width - listWidth - 4
-	detailHeight := (m.height - 3) * 40 / 100
-	responseHeight := m.height - 3 - detailHeight - 4
+	listWidth := m.width * listWidthPercent / 100
+	rightWidth := m.width - listWidth - panelHorizInset
+	detailHeight := (m.height - statusBarHeight) * detailHeightPercent / 100
+	responseHeight := m.height - statusBarHeight - detailHeight - panelVertInset
 
 	listPanel := panelStyle(m.activePanel == panelList).
 		Width(listWidth).
-		Height(m.height - 3).
+		Height(m.height - statusBarHeight).
 		Render(m.list.View())
 
 	detailTitle := " Request "
@@ -264,15 +279,15 @@ func (m Model) renderStatusBar() string {
 }
 
 func (m Model) resizePanels() Model {
-	listWidth := m.width * 30 / 100
-	rightWidth := m.width - listWidth - 6
-	detailHeight := (m.height - 3) * 40 / 100
-	responseHeight := m.height - 3 - detailHeight - 8
+	listWidth := m.width * listWidthPercent / 100
+	rightWidth := m.width - listWidth - panelHorizInset
+	detailHeight := (m.height - statusBarHeight) * detailHeightPercent / 100
+	responseHeight := m.height - statusBarHeight - detailHeight - panelVertInset
 
-	m.list.SetSize(listWidth-2, m.height-5)
+	m.list.SetSize(listWidth-panelContentXPad, m.height-statusBarHeight-panelContentYPad)
 
-	m.detail = viewport.New(rightWidth, max(detailHeight-3, 1))
-	m.response = viewport.New(rightWidth, max(responseHeight-3, 1))
+	m.detail = viewport.New(rightWidth-panelContentXPad, max(detailHeight-panelContentYPad, 1))
+	m.response = viewport.New(rightWidth-panelContentXPad, max(responseHeight-panelContentYPad, 1))
 
 	return m
 }
@@ -297,11 +312,4 @@ func panelStyle(active bool) lipgloss.Style {
 		return activePanelStyle
 	}
 	return inactivePanelStyle
-}
-
-func max(a, b int) int {
-	if a > b {
-		return a
-	}
-	return b
 }
