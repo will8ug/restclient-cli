@@ -16,7 +16,7 @@ import (
 
 const (
 	listWidthPercent    = 30 // percentage of terminal width for request list
-	detailHeightPercent = 40 // percentage of available height for detail panel
+	detailHeightPercent = 30 // percentage of available height for detail panel
 	statusBarHeight     = 3  // height reserved for bottom status bar (1 line + padding)
 	panelHorizInset     = 4  // left+right borders and spacing between panels
 	panelVertInset      = 4  // top+bottom borders and panel title overhead
