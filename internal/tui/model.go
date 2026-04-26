@@ -19,7 +19,7 @@ const (
 	detailHeightPercent = 30 // percentage of available height for detail panel
 	statusBarHeight     = 3  // height reserved for bottom status bar (1 line + padding)
 	panelHorizInset     = 4  // left+right borders and spacing between panels
-	panelVertInset      = 4  // top+bottom borders and panel title overhead
+	panelBorderHeight   = 2  // top+bottom border lines per panel (lipgloss RoundedBorder)
 	numPanels           = 3  // total number of panels
 	panelContentXPad    = 2  // horizontal padding for views inside bordered panels
 	panelContentYPad    = 3  // vertical padding for views inside bordered panels (title + borders)
@@ -214,12 +214,13 @@ func (m Model) View() string {
 
 	listWidth := m.width * listWidthPercent / 100
 	rightWidth := m.width - listWidth - panelHorizInset
-	detailHeight := (m.height - statusBarHeight) * detailHeightPercent / 100
-	responseHeight := m.height - statusBarHeight - detailHeight - panelVertInset
+	listContentHeight := m.height - statusBarHeight
+	detailHeight := listContentHeight * detailHeightPercent / 100
+	responseHeight := listContentHeight - detailHeight - panelBorderHeight
 
 	listPanel := panelStyle(m.activePanel == panelList).
 		Width(listWidth).
-		Height(m.height - statusBarHeight).
+		Height(listContentHeight).
 		Render(m.list.View())
 
 	detailTitle := " Request "
@@ -281,10 +282,11 @@ func (m Model) renderStatusBar() string {
 func (m Model) resizePanels() Model {
 	listWidth := m.width * listWidthPercent / 100
 	rightWidth := m.width - listWidth - panelHorizInset
-	detailHeight := (m.height - statusBarHeight) * detailHeightPercent / 100
-	responseHeight := m.height - statusBarHeight - detailHeight - panelVertInset
+	listContentHeight := m.height - statusBarHeight
+	detailHeight := listContentHeight * detailHeightPercent / 100
+	responseHeight := listContentHeight - detailHeight - panelBorderHeight
 
-	m.list.SetSize(listWidth-panelContentXPad, m.height-statusBarHeight-panelContentYPad)
+	m.list.SetSize(listWidth-panelContentXPad, listContentHeight-panelContentYPad)
 
 	m.detail = viewport.New(rightWidth-panelContentXPad, max(detailHeight-panelContentYPad, 1))
 	m.response = viewport.New(rightWidth-panelContentXPad, max(responseHeight-panelContentYPad, 1))
