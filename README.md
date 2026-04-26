@@ -15,6 +15,11 @@ A TUI (Terminal User Interface) REST API client that reads `.http` files — the
 ## Build
 
 ```bash
+# With Make
+make build          # → ./bin/restclient-cli
+make install        # → $GOPATH/bin/restclient-cli
+
+# Or directly
 go build -o restclient-cli ./cmd/
 ```
 
@@ -27,6 +32,18 @@ go build -o restclient-cli ./cmd/
 # Show version
 ./restclient-cli --version
 ```
+
+## Development
+
+```bash
+make test          # go test -race -count=1 ./...
+make vet           # go vet ./...
+make fmt           # go fmt ./...
+make lint          # golangci-lint run (requires install)
+make clean         # remove ./bin/
+```
+
+> **Prerequisites**: Go 1.26+, [golangci-lint](https://golangci-lint.run/) (optional, for `make lint`)
 
 ## Keyboard Shortcuts
 
