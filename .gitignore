@@ -3,6 +3,7 @@ dist/
 
 .vscode/
 .idea/
+.trae/
 
 .DS_Store
 
