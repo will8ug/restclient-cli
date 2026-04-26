@@ -172,6 +172,11 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		m.response.GotoTop()
 		return m, nil
 
+	case list.FilterMatchesMsg:
+		var cmd tea.Cmd
+		m.list, cmd = m.list.Update(msg)
+		return m, cmd
+
 	case spinner.TickMsg:
 		if m.loading {
 			var cmd tea.Cmd
