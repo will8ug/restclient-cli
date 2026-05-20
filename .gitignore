@@ -7,6 +7,8 @@ bin/
 .trae/
 
 .DS_Store
+.worktrees/
+.claude/
 
 # Go
 restclient-cli
