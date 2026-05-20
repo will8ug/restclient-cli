@@ -171,7 +171,7 @@ func renderHelp() string {
   ↑/↓ or j/k     Navigate request list / scroll panels vertically
   ←/→            Scroll panels horizontally
   Shift+←/→      Scroll panels horizontally (fine, 3 columns)
-  Home/End       Reset horizontal scroll position
+  Home/End       Jump to start/end horizontally
   Enter          Send selected request
   Tab            Switch panel focus
   /              Filter requests
