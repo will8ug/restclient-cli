@@ -142,6 +142,46 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 					)
 				}
 			}
+
+		case "shift+left":
+			switch m.activePanel {
+			case panelDetail:
+				m.detail.ScrollLeft(3)
+				return m, nil
+			case panelResponse:
+				m.response.ScrollLeft(3)
+				return m, nil
+			}
+
+		case "shift+right":
+			switch m.activePanel {
+			case panelDetail:
+				m.detail.ScrollRight(3)
+				return m, nil
+			case panelResponse:
+				m.response.ScrollRight(3)
+				return m, nil
+			}
+
+		case "home":
+			switch m.activePanel {
+			case panelDetail:
+				m.detail.SetXOffset(0)
+				return m, nil
+			case panelResponse:
+				m.response.SetXOffset(0)
+				return m, nil
+			}
+
+		case "end":
+			switch m.activePanel {
+			case panelDetail:
+				m.detail.SetXOffset(1 << 30) // clamped internally by viewport to max
+				return m, nil
+			case panelResponse:
+				m.response.SetXOffset(1 << 30)
+				return m, nil
+			}
 		}
 
 		switch m.activePanel {

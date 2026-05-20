@@ -168,13 +168,16 @@ func renderHelp() string {
 	helpContent := `
   Keyboard Shortcuts
 
-  ↑/↓ or j/k   Navigate request list / scroll panels
-  Enter         Send selected request
-  Tab           Switch panel focus
-  /             Filter requests
-  ?             Toggle this help
-  q             Quit
-  Ctrl+C        Force quit
+  ↑/↓ or j/k     Navigate request list / scroll panels vertically
+  ←/→            Scroll panels horizontally
+  Shift+←/→      Scroll panels horizontally (fine, 3 columns)
+  Home/End       Reset horizontal scroll position
+  Enter          Send selected request
+  Tab            Switch panel focus
+  /              Filter requests
+  ?              Toggle this help
+  q              Quit
+  Ctrl+C         Force quit
 `
 	style := lipgloss.NewStyle().
 		Border(lipgloss.DoubleBorder()).

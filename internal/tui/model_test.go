@@ -266,3 +266,81 @@ func TestUpdateDetailXOffsetResetOnSelection(t *testing.T) {
 		t.Fatalf("expected detail view to start with GET after xOffset reset, got: %q", firstLine)
 	}
 }
+
+// uniqueLine creates a line where each character position is identifiable:
+// the character at offset i is 'A' + (i % 26), so different offsets show different text.
+func uniqueLine(length int) string {
+	buf := make([]byte, length)
+	for i := range buf {
+		buf[i] = byte('A' + (i % 26))
+	}
+	return string(buf)
+}
+
+func TestUpdateHorizontalScrollHomeKey(t *testing.T) {
+	m := setupModel(t)
+	// Tab to detail panel
+	m, _ = sendKey(t, m, tea.KeyMsg{Type: tea.KeyTab})
+
+	// Set long content with distinct chars per position and scroll right
+	m.detail.SetContent(uniqueLine(200))
+	m.detail.SetXOffset(20)
+
+	beforeHome := m.detail.View()
+
+	// Press Home -- should reset xOffset to 0
+	m, _ = sendKey(t, m, tea.KeyMsg{Type: tea.KeyHome})
+
+	afterHome := m.detail.View()
+	if beforeHome == afterHome {
+		t.Fatal("expected view to change after Home key resets horizontal scroll")
+	}
+}
+
+func TestUpdateHorizontalScrollEndKey(t *testing.T) {
+	m := setupModel(t)
+	// Tab to detail panel
+	m, _ = sendKey(t, m, tea.KeyMsg{Type: tea.KeyTab})
+
+	// Set long content with distinct chars per position at offset 0
+	m.detail.SetContent(uniqueLine(200))
+
+	beforeEnd := m.detail.View()
+
+	// Press End -- should scroll to max horizontal position
+	m, _ = sendKey(t, m, tea.KeyMsg{Type: tea.KeyEnd})
+
+	afterEnd := m.detail.View()
+	if beforeEnd == afterEnd {
+		t.Fatal("expected view to change after End key scrolls to max horizontal position")
+	}
+}
+
+func TestUpdateHorizontalScrollShiftLeftRight(t *testing.T) {
+	m := setupModel(t)
+	// Tab to detail panel
+	m, _ = sendKey(t, m, tea.KeyMsg{Type: tea.KeyTab})
+
+	// Set long content with distinct chars per position at offset 0
+	m.detail.SetContent(uniqueLine(200))
+
+	beforeShiftRight := m.detail.View()
+
+	// Press Shift+Right -- should scroll right by 3
+	m, _ = sendKey(t, m, tea.KeyMsg{Type: tea.KeyShiftRight})
+
+	afterShiftRight := m.detail.View()
+	if beforeShiftRight == afterShiftRight {
+		t.Fatal("expected view to change after Shift+Right scrolls horizontally")
+	}
+
+	beforeShiftLeft := m.detail.View()
+
+	// Press Shift+Left -- should scroll left by 3
+	m, _ = sendKey(t, m, tea.KeyMsg{Type: tea.KeyShiftLeft})
+
+	afterShiftLeft := m.detail.View()
+	if beforeShiftLeft == afterShiftLeft {
+		t.Fatal("expected view to change after Shift+Left scrolls horizontally")
+	}
+}
