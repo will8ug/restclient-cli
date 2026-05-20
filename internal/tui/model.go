@@ -42,20 +42,23 @@ type errMsg struct {
 }
 
 type Model struct {
-	requests    []parser.Request
-	fileName    string
-	list        list.Model
-	detail      viewport.Model
-	response    viewport.Model
-	spinner     spinner.Model
-	activePanel panel
-	loading     bool
-	currentResp *executor.Response
-	currentErr  error
-	width       int
-	height      int
-	ready       bool
-	showHelp    bool
+	requests       []parser.Request
+	fileName       string
+	list           list.Model
+	detail         viewport.Model
+	response       viewport.Model
+	spinner        spinner.Model
+	activePanel    panel
+	loading        bool
+	currentResp    *executor.Response
+	currentErr     error
+	width          int
+	height         int
+	ready          bool
+	showHelp       bool
+	listXOffset    int
+	listMaxXOffset int
+	listDelegate   *requestDelegate
 }
 
 func NewModel(requests []parser.Request, fileName string) Model {
@@ -65,7 +68,7 @@ func NewModel(requests []parser.Request, fileName string) Model {
 	s.Spinner = spinner.Dot
 	s.Style = lipgloss.NewStyle().Foreground(lipgloss.Color("205"))
 
-	delegate := requestDelegate{}
+	delegate := &requestDelegate{}
 	l := list.New(items, delegate, 0, 0)
 	l.Title = "Requests"
 	l.SetShowStatusBar(false)
@@ -74,11 +77,12 @@ func NewModel(requests []parser.Request, fileName string) Model {
 	l.Styles.Title = titleStyle
 
 	return Model{
-		requests:    requests,
-		fileName:    fileName,
-		list:        l,
-		spinner:     s,
-		activePanel: panelList,
+		requests:     requests,
+		fileName:     fileName,
+		list:         l,
+		spinner:      s,
+		activePanel:  panelList,
+		listDelegate: delegate,
 	}
 }
 
@@ -143,8 +147,23 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				}
 			}
 
+		case "left":
+			if m.activePanel == panelList {
+				m.listXOffset = max(m.listXOffset-6, 0)
+				return m, nil
+			}
+
+		case "right":
+			if m.activePanel == panelList {
+				m.listXOffset = min(m.listXOffset+6, m.listMaxXOffset)
+				return m, nil
+			}
+
 		case "shift+left":
 			switch m.activePanel {
+			case panelList:
+				m.listXOffset = max(m.listXOffset-3, 0)
+				return m, nil
 			case panelDetail:
 				m.detail.ScrollLeft(3)
 				return m, nil
@@ -155,6 +174,9 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 		case "shift+right":
 			switch m.activePanel {
+			case panelList:
+				m.listXOffset = min(m.listXOffset+3, m.listMaxXOffset)
+				return m, nil
 			case panelDetail:
 				m.detail.ScrollRight(3)
 				return m, nil
@@ -165,6 +187,9 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 		case "home":
 			switch m.activePanel {
+			case panelList:
+				m.listXOffset = 0
+				return m, nil
 			case panelDetail:
 				m.detail.SetXOffset(0)
 				return m, nil
@@ -175,6 +200,9 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 		case "end":
 			switch m.activePanel {
+			case panelList:
+				m.listXOffset = m.listMaxXOffset
+				return m, nil
 			case panelDetail:
 				m.detail.SetXOffset(1 << 30) // clamped internally by viewport to max
 				return m, nil
@@ -255,6 +283,9 @@ func (m Model) View() string {
 		return lipgloss.Place(m.width, m.height, lipgloss.Center, lipgloss.Center, renderHelp())
 	}
 
+	// Set delegate xOffset before rendering list
+	m.listDelegate.xOffset = m.listXOffset
+
 	listWidth := m.width * listWidthPercent / 100
 	rightWidth := m.width - listWidth - panelHorizInset
 	listContentHeight := m.height - statusBarHeight
@@ -331,10 +362,36 @@ func (m Model) resizePanels() Model {
 
 	m.list.SetSize(listWidth-panelContentXPad, listContentHeight-panelContentYPad)
 
+	// Calculate listMaxXOffset
+	visibleWidth := listWidth - panelContentXPad
+	longestLineWidth := m.longestListItemWidth()
+	m.listMaxXOffset = max(longestLineWidth-visibleWidth, 0)
+	m.listXOffset = min(m.listXOffset, m.listMaxXOffset)
+
 	m.detail = viewport.New(rightWidth-panelContentXPad, max(detailHeight-panelContentYPad, 1))
 	m.response = viewport.New(rightWidth-panelContentXPad, max(responseHeight-panelContentYPad, 1))
 
 	return m
+}
+
+func (m Model) longestListItemWidth() int {
+	maxW := 0
+	for _, req := range m.requests {
+		badge := methodStyle(req.Method).Render(fmt.Sprintf("%-7s", req.Method))
+		name := req.Name
+		if name == "" {
+			name = req.URL
+		}
+		titleLine := fmt.Sprintf("> %s %s", badge, name)
+		descLine := fmt.Sprintf("  %s", req.URL)
+		titleW := lipgloss.Width(titleLine)
+		descW := lipgloss.Width(descLine)
+		w := max(titleW, descW)
+		if w > maxW {
+			maxW = w
+		}
+	}
+	return maxW
 }
 
 func executeRequest(req parser.Request) tea.Cmd {

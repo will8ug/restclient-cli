@@ -344,3 +344,46 @@ func TestUpdateHorizontalScrollShiftLeftRight(t *testing.T) {
 		t.Fatal("expected view to change after Shift+Left scrolls horizontally")
 	}
 }
+
+func TestUpdateListHorizontalScroll(t *testing.T) {
+	m := setupModel(t)
+	// Ensure we're in list panel
+	if m.activePanel != panelList {
+		t.Fatalf("expected panelList, got %v", m.activePanel)
+	}
+
+	// Initial listXOffset should be 0
+	if m.listXOffset != 0 {
+		t.Fatalf("expected initial listXOffset=0, got %d", m.listXOffset)
+	}
+
+	// Press right in list panel -- should scroll list right
+	m, _ = sendKey(t, m, tea.KeyMsg{Type: tea.KeyRight})
+	if m.listXOffset == 0 {
+		t.Fatal("expected listXOffset > 0 after pressing right in list panel")
+	}
+
+	// Press Home -- should reset listXOffset to 0
+	m, _ = sendKey(t, m, tea.KeyMsg{Type: tea.KeyHome})
+	if m.listXOffset != 0 {
+		t.Fatalf("expected listXOffset=0 after Home, got %d", m.listXOffset)
+	}
+}
+
+func TestUpdateListHorizontalScrollClamp(t *testing.T) {
+	m := setupModel(t)
+
+	// Press left at offset 0 -- should stay at 0
+	m, _ = sendKey(t, m, tea.KeyMsg{Type: tea.KeyLeft})
+	if m.listXOffset != 0 {
+		t.Fatalf("expected listXOffset=0 when pressing left at offset 0, got %d", m.listXOffset)
+	}
+
+	// Scroll right multiple times -- should clamp at listMaxXOffset
+	for i := 0; i < 50; i++ {
+		m, _ = sendKey(t, m, tea.KeyMsg{Type: tea.KeyRight})
+	}
+	if m.listXOffset > m.listMaxXOffset {
+		t.Fatalf("expected listXOffset <= listMaxXOffset (%d), got %d", m.listMaxXOffset, m.listXOffset)
+	}
+}

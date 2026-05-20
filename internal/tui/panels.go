@@ -10,6 +10,7 @@ import (
 	"github.com/charmbracelet/bubbles/list"
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
+	"github.com/charmbracelet/x/ansi"
 	"github.com/will8ug/restclient-cli/internal/executor"
 	"github.com/will8ug/restclient-cli/internal/parser"
 )
@@ -32,13 +33,15 @@ func (i requestItem) Title() string {
 }
 func (i requestItem) Description() string { return i.url }
 
-type requestDelegate struct{}
+type requestDelegate struct {
+	xOffset int
+}
 
-func (d requestDelegate) Height() int                             { return 2 }
-func (d requestDelegate) Spacing() int                            { return 0 }
-func (d requestDelegate) Update(_ tea.Msg, _ *list.Model) tea.Cmd { return nil }
+func (d *requestDelegate) Height() int                             { return 2 }
+func (d *requestDelegate) Spacing() int                            { return 0 }
+func (d *requestDelegate) Update(_ tea.Msg, _ *list.Model) tea.Cmd { return nil }
 
-func (d requestDelegate) Render(w io.Writer, m list.Model, index int, listItem list.Item) {
+func (d *requestDelegate) Render(w io.Writer, m list.Model, index int, listItem list.Item) {
 	item, ok := listItem.(requestItem)
 	if !ok {
 		return
@@ -60,6 +63,13 @@ func (d requestDelegate) Render(w io.Writer, m list.Model, index int, listItem l
 		descLine = lipgloss.NewStyle().Foreground(lipgloss.Color("170")).Render("  " + item.url)
 	} else {
 		titleLine = "  " + titleLine
+	}
+
+	// Apply horizontal scroll offset
+	if d.xOffset > 0 {
+		visibleWidth := m.Width()
+		titleLine = ansi.Cut(titleLine, d.xOffset, d.xOffset+visibleWidth)
+		descLine = ansi.Cut(descLine, d.xOffset, d.xOffset+visibleWidth)
 	}
 
 	fmt.Fprintf(w, "%s\n%s", titleLine, descLine)
