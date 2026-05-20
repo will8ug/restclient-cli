@@ -156,6 +156,7 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				if idx >= 0 && idx < len(m.requests) {
 					m.detail.SetContent(renderRequestDetail(m.requests[idx]))
 					m.detail.GotoTop()
+					m.detail.SetXOffset(0)
 				}
 			}
 			return m, tea.Batch(cmds...)
@@ -177,6 +178,7 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		m.currentErr = nil
 		m.response.SetContent(renderResponse(msg.resp))
 		m.response.GotoTop()
+		m.response.SetXOffset(0)
 		return m, nil
 
 	case errMsg:
@@ -185,6 +187,7 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		m.currentErr = msg.err
 		m.response.SetContent(renderError(msg.err))
 		m.response.GotoTop()
+		m.response.SetXOffset(0)
 		return m, nil
 
 	case list.FilterMatchesMsg:

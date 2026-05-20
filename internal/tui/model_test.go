@@ -236,3 +236,33 @@ func TestUpdateDetailUpdatesOnSelection(t *testing.T) {
 		t.Fatalf("expected detail to contain request URL %q, got %q", "/users/1", got)
 	}
 }
+
+func TestUpdateDetailXOffsetResetOnSelection(t *testing.T) {
+	// Use a narrow window so content lines are wider than the viewport,
+	// making horizontal scrolling possible (SetXOffset has actual effect).
+	requests := []parser.Request{
+		{Name: "Get users", Method: "GET", URL: "https://api.example.com/users"},
+		{Name: "Create user", Method: "POST", URL: "https://api.example.com/users"},
+	}
+	m := NewModel(requests, "test.http")
+	newM, _ := m.Update(tea.WindowSizeMsg{Width: 40, Height: 30})
+	m = newM.(Model)
+
+	// Navigate to the POST request first so its detail content is loaded
+	m, _ = sendKey(t, m, tea.KeyMsg{Type: tea.KeyDown})
+
+	// Scroll detail viewport right so content is shifted.
+	m.detail.SetXOffset(20)
+
+	// Return to the GET request — this triggers SetContent + GotoTop,
+	// but xOffset persists because GotoTop only resets YOffset.
+	m, _ = sendKey(t, m, tea.KeyMsg{Type: tea.KeyUp})
+
+	// The first line of detail should start with the method name (visible again
+	// only if xOffset was reset to 0; otherwise it's scrolled off-screen).
+	detailView := m.detail.View()
+	firstLine := strings.Split(detailView, "\n")[0]
+	if !strings.Contains(firstLine, "GET") {
+		t.Fatalf("expected detail view to start with GET after xOffset reset, got: %q", firstLine)
+	}
+}
