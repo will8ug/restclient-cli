@@ -236,3 +236,154 @@ func TestUpdateDetailUpdatesOnSelection(t *testing.T) {
 		t.Fatalf("expected detail to contain request URL %q, got %q", "/users/1", got)
 	}
 }
+
+func TestUpdateDetailXOffsetResetOnSelection(t *testing.T) {
+	// Use a narrow window so content lines are wider than the viewport,
+	// making horizontal scrolling possible (SetXOffset has actual effect).
+	requests := []parser.Request{
+		{Name: "Get users", Method: "GET", URL: "https://api.example.com/users"},
+		{Name: "Create user", Method: "POST", URL: "https://api.example.com/users"},
+	}
+	m := NewModel(requests, "test.http")
+	newM, _ := m.Update(tea.WindowSizeMsg{Width: 40, Height: 30})
+	m = newM.(Model)
+
+	// Navigate to the POST request first so its detail content is loaded
+	m, _ = sendKey(t, m, tea.KeyMsg{Type: tea.KeyDown})
+
+	// Scroll detail viewport right so content is shifted.
+	m.detail.SetXOffset(20)
+
+	// Return to the GET request — this triggers SetContent + GotoTop,
+	// but xOffset persists because GotoTop only resets YOffset.
+	m, _ = sendKey(t, m, tea.KeyMsg{Type: tea.KeyUp})
+
+	// The first line of detail should start with the method name (visible again
+	// only if xOffset was reset to 0; otherwise it's scrolled off-screen).
+	detailView := m.detail.View()
+	firstLine := strings.Split(detailView, "\n")[0]
+	if !strings.Contains(firstLine, "GET") {
+		t.Fatalf("expected detail view to start with GET after xOffset reset, got: %q", firstLine)
+	}
+}
+
+// uniqueLine creates a line where each character position is identifiable:
+// the character at offset i is 'A' + (i % 26), so different offsets show different text.
+func uniqueLine(length int) string {
+	buf := make([]byte, length)
+	for i := range buf {
+		buf[i] = byte('A' + (i % 26))
+	}
+	return string(buf)
+}
+
+func TestUpdateHorizontalScrollHomeKey(t *testing.T) {
+	m := setupModel(t)
+	// Tab to detail panel
+	m, _ = sendKey(t, m, tea.KeyMsg{Type: tea.KeyTab})
+
+	// Set long content with distinct chars per position and scroll right
+	m.detail.SetContent(uniqueLine(200))
+	m.detail.SetXOffset(20)
+
+	beforeHome := m.detail.View()
+
+	// Press Home -- should reset xOffset to 0
+	m, _ = sendKey(t, m, tea.KeyMsg{Type: tea.KeyHome})
+
+	afterHome := m.detail.View()
+	if beforeHome == afterHome {
+		t.Fatal("expected view to change after Home key resets horizontal scroll")
+	}
+}
+
+func TestUpdateHorizontalScrollEndKey(t *testing.T) {
+	m := setupModel(t)
+	// Tab to detail panel
+	m, _ = sendKey(t, m, tea.KeyMsg{Type: tea.KeyTab})
+
+	// Set long content with distinct chars per position at offset 0
+	m.detail.SetContent(uniqueLine(200))
+
+	beforeEnd := m.detail.View()
+
+	// Press End -- should scroll to max horizontal position
+	m, _ = sendKey(t, m, tea.KeyMsg{Type: tea.KeyEnd})
+
+	afterEnd := m.detail.View()
+	if beforeEnd == afterEnd {
+		t.Fatal("expected view to change after End key scrolls to max horizontal position")
+	}
+}
+
+func TestUpdateHorizontalScrollShiftLeftRight(t *testing.T) {
+	m := setupModel(t)
+	// Tab to detail panel
+	m, _ = sendKey(t, m, tea.KeyMsg{Type: tea.KeyTab})
+
+	// Set long content with distinct chars per position at offset 0
+	m.detail.SetContent(uniqueLine(200))
+
+	beforeShiftRight := m.detail.View()
+
+	// Press Shift+Right -- should scroll right by 3
+	m, _ = sendKey(t, m, tea.KeyMsg{Type: tea.KeyShiftRight})
+
+	afterShiftRight := m.detail.View()
+	if beforeShiftRight == afterShiftRight {
+		t.Fatal("expected view to change after Shift+Right scrolls horizontally")
+	}
+
+	beforeShiftLeft := m.detail.View()
+
+	// Press Shift+Left -- should scroll left by 3
+	m, _ = sendKey(t, m, tea.KeyMsg{Type: tea.KeyShiftLeft})
+
+	afterShiftLeft := m.detail.View()
+	if beforeShiftLeft == afterShiftLeft {
+		t.Fatal("expected view to change after Shift+Left scrolls horizontally")
+	}
+}
+
+func TestUpdateListHorizontalScroll(t *testing.T) {
+	m := setupModel(t)
+	// Ensure we're in list panel
+	if m.activePanel != panelList {
+		t.Fatalf("expected panelList, got %v", m.activePanel)
+	}
+
+	// Initial listXOffset should be 0
+	if m.listXOffset != 0 {
+		t.Fatalf("expected initial listXOffset=0, got %d", m.listXOffset)
+	}
+
+	// Press right in list panel -- should scroll list right
+	m, _ = sendKey(t, m, tea.KeyMsg{Type: tea.KeyRight})
+	if m.listXOffset == 0 {
+		t.Fatal("expected listXOffset > 0 after pressing right in list panel")
+	}
+
+	// Press Home -- should reset listXOffset to 0
+	m, _ = sendKey(t, m, tea.KeyMsg{Type: tea.KeyHome})
+	if m.listXOffset != 0 {
+		t.Fatalf("expected listXOffset=0 after Home, got %d", m.listXOffset)
+	}
+}
+
+func TestUpdateListHorizontalScrollClamp(t *testing.T) {
+	m := setupModel(t)
+
+	// Press left at offset 0 -- should stay at 0
+	m, _ = sendKey(t, m, tea.KeyMsg{Type: tea.KeyLeft})
+	if m.listXOffset != 0 {
+		t.Fatalf("expected listXOffset=0 when pressing left at offset 0, got %d", m.listXOffset)
+	}
+
+	// Scroll right multiple times -- should clamp at listMaxXOffset
+	for i := 0; i < 50; i++ {
+		m, _ = sendKey(t, m, tea.KeyMsg{Type: tea.KeyRight})
+	}
+	if m.listXOffset > m.listMaxXOffset {
+		t.Fatalf("expected listXOffset <= listMaxXOffset (%d), got %d", m.listMaxXOffset, m.listXOffset)
+	}
+}
