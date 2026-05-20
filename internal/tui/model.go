@@ -21,8 +21,10 @@ const (
 	panelHorizInset     = 4  // left+right borders and spacing between panels
 	panelBorderHeight   = 2  // top+bottom border lines per panel (lipgloss RoundedBorder)
 	numPanels           = 3  // total number of panels
-	panelContentXPad    = 2  // horizontal padding for views inside bordered panels
-	panelContentYPad    = 3  // vertical padding for views inside bordered panels (title + borders)
+	hScrollStep      = 6  // columns per left/right arrow press for horizontal scroll
+	hScrollFineStep  = 3  // columns per shift+left/right press for horizontal scroll
+	panelContentXPad = 2  // horizontal padding for views inside bordered panels
+	panelContentYPad = 3  // vertical padding for views inside bordered panels (title + borders)
 )
 
 type panel int
@@ -149,39 +151,39 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 		case "left":
 			if m.activePanel == panelList {
-				m.listXOffset = max(m.listXOffset-6, 0)
+				m.listXOffset = max(m.listXOffset-hScrollStep, 0)
 				return m, nil
 			}
 
 		case "right":
 			if m.activePanel == panelList {
-				m.listXOffset = min(m.listXOffset+6, m.listMaxXOffset)
+				m.listXOffset = min(m.listXOffset+hScrollStep, m.listMaxXOffset)
 				return m, nil
 			}
 
 		case "shift+left":
 			switch m.activePanel {
 			case panelList:
-				m.listXOffset = max(m.listXOffset-3, 0)
+				m.listXOffset = max(m.listXOffset-hScrollFineStep, 0)
 				return m, nil
 			case panelDetail:
-				m.detail.ScrollLeft(3)
+				m.detail.ScrollLeft(hScrollFineStep)
 				return m, nil
 			case panelResponse:
-				m.response.ScrollLeft(3)
+				m.response.ScrollLeft(hScrollFineStep)
 				return m, nil
 			}
 
 		case "shift+right":
 			switch m.activePanel {
 			case panelList:
-				m.listXOffset = min(m.listXOffset+3, m.listMaxXOffset)
+				m.listXOffset = min(m.listXOffset+hScrollFineStep, m.listMaxXOffset)
 				return m, nil
 			case panelDetail:
-				m.detail.ScrollRight(3)
+				m.detail.ScrollRight(hScrollFineStep)
 				return m, nil
 			case panelResponse:
-				m.response.ScrollRight(3)
+				m.response.ScrollRight(hScrollFineStep)
 				return m, nil
 			}
 
