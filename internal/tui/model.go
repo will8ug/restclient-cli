@@ -342,7 +342,7 @@ func (m Model) renderStatusBar() string {
 		}
 		left = fmt.Sprintf(" %s Sending %s %s...", m.spinner.View(), method, url)
 	} else {
-		left = " ↑↓ nav  ←→ h-scroll  home/end h-reset  enter send  tab switch  / filter  ? help  q quit"
+		left = " ↑↓ nav  ←→ h-scroll  home/end h-jump  enter send  tab switch  / filter  ? help  q quit"
 	}
 
 	right := fmt.Sprintf(" %s ", m.fileName)
@@ -371,7 +371,9 @@ func (m Model) resizePanels() Model {
 	m.listXOffset = min(m.listXOffset, m.listMaxXOffset)
 
 	m.detail = viewport.New(rightWidth-panelContentXPad, max(detailHeight-panelContentYPad, 1))
+	m.detail.SetHorizontalStep(hScrollStep)
 	m.response = viewport.New(rightWidth-panelContentXPad, max(responseHeight-panelContentYPad, 1))
+	m.response.SetHorizontalStep(hScrollStep)
 
 	return m
 }
