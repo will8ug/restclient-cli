@@ -342,7 +342,7 @@ func (m Model) renderStatusBar() string {
 		}
 		left = fmt.Sprintf(" %s Sending %s %s...", m.spinner.View(), method, url)
 	} else {
-		left = " ↑↓ navigate  enter send  tab switch  / filter  ? help  q quit"
+		left = " ↑↓ nav  ←→ h-scroll  home/end h-reset  enter send  tab switch  / filter  ? help  q quit"
 	}
 
 	right := fmt.Sprintf(" %s ", m.fileName)
